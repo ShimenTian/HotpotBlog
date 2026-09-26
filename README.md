@@ -10,8 +10,8 @@
 content/                 Markdown 文章
 images/                  文章配图
 scripts/check-content.mjs 文章信息和本地图片检查
-scripts/request-deploy.mjs 可选的部署请求脚本
-.github/workflows/       内容检查及停用状态的自动发布配置
+scripts/request-deploy.mjs 触发私有网站仓库发布
+.github/workflows/       内容检查与自动发布触发
 ```
 
 ## 写一篇文章
@@ -83,24 +83,22 @@ node scripts/check-content.mjs
 
 检查涵盖文章文件名、必填信息、分类、日期、示例标记和本地图片是否存在。网站完整构建与页面链接检查由私有网站仓库负责。
 
-## 自动更新的准备情况
+## 自动更新网站
 
-内容检查已配置：提交 Pull Request、向 `main` 推送更改或手动运行工作流，都会检查文章。
+网站地址：http://117.72.210.125/
 
-**自动发布目前未启用，现有线上网站仍由原来的托管方式维护。** 本仓库没有设置任何部署 Secret 或开关，本次拆分也不会迁移线上网站。
+向 `main` 推送更改后，工作流先检查文章，再触发私有仓库 `ShimenTian/hotpot-coding-site` 的发布任务。网站仓库会读取本仓库主分支最新内容，构建并上传到 Ubuntu 服务器。Pull Request 只检查文章。
 
-以后选择 Vercel 托管时，可以按以下顺序连接：
+连接配置位于 **Settings → Secrets and variables → Actions**：
 
-1. 将 Vercel 项目连接到私有网站仓库 `ShimenTian/hotpot-coding-site`，使用该仓库的构建配置。构建过程会读取本仓库 `main` 的最新文章与图片。
-2. 在 Vercel 项目的 Git 设置中创建面向网站仓库 `main` 分支的 Deploy Hook。
-3. 在本仓库的 **Settings → Secrets and variables → Actions → Secrets** 中创建 `VERCEL_DEPLOY_HOOK`，保存 Vercel 生成的完整 URL。该地址包含凭据，保存到 Secret 即可。
-4. 准备发布时，在同一设置页的 **Variables** 中创建 `AUTO_DEPLOY`，值为 `true`。
+- Secret `SITE_DISPATCH_TOKEN`：GitHub fine-grained token，仅选择网站仓库，授予 Actions: Read and write。令牌过期后需更新。
+- Variable `AUTO_DEPLOY`：`true` 启用文章触发，`false` 暂停。
 
-启用后，本仓库 `main` 的推送或在 `main` 上手动运行工作流，会在内容检查通过后请求 Vercel 重新构建。Pull Request 始终只执行内容检查。部署请求被接受，仅表示任务已提交；构建是否成功以及是否上线，以 Vercel 控制台为准。
+本仓库无需服务器私钥。公开仓库中的工作流文件可以被阅读，Secrets 的值不会随代码公开。令牌仅在主分支推送或主分支手动运行的发布步骤中使用。
 
-将 `AUTO_DEPLOY` 设为 `false` 或删除该变量，即可停用这里的自动发布请求。Vercel 对网站外壳仓库的自动部署另由 Vercel 项目设置管理。
+本仓库检查通过表示发布请求已提交；实际是否上线，以 [网站仓库 Actions](https://github.com/ShimenTian/hotpot-coding-site/actions) 的结果为准。网站的 `/content-version.json` 可核对实际文章提交。任务失败不会强制覆盖当前正常版本。
 
-工作流采用 [GitHub Actions](https://docs.github.com/en/actions)，部署请求遵循 [Vercel Deploy Hooks](https://vercel.com/docs/deploy-hooks)。
+旧 Vercel Deploy Hook 已由 GitHub 跨仓库触发替换。整个流程无需作者电脑保持开机。
 
 ## 使用说明
 

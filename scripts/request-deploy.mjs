@@ -1,42 +1,35 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export function validateDeployHook(value) {
-  let url;
-  try { url = new URL(value); } catch { throw new Error('请在仓库 Secret VERCEL_DEPLOY_HOOK 中保存有效的部署 Hook。'); }
-  if (
-    url.protocol !== 'https:' || url.hostname !== 'api.vercel.com' ||
-    url.port || url.username || url.password || url.search || url.hash ||
-    !/^\/v1\/integrations\/deploy\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+$/.test(url.pathname)
-  ) {
-    throw new Error('部署 Hook 格式不正确：须使用 Vercel 生成的 HTTPS 地址，且不含额外参数。');
-  }
-  return url;
-}
+const endpoint = 'https://api.github.com/repos/ShimenTian/hotpot-coding-site/actions/workflows/build.yml/dispatches';
 
-export async function requestDeployHook(value, fetchRequest = fetch) {
-  const url = validateDeployHook(value);
+export async function requestSiteDeployment(token, fetchRequest = fetch) {
+  if (!token?.trim()) throw new Error('请在仓库 Secret SITE_DISPATCH_TOKEN 中配置网站仓库的 Actions 令牌。');
   let response;
   try {
-    response = await fetchRequest(url, {
+    response = await fetchRequest(endpoint, {
       method: 'POST',
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${token.trim()}`,
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+      body: JSON.stringify({ ref: 'main' }),
       redirect: 'error',
       signal: AbortSignal.timeout(30_000),
     });
   } catch {
-    // Fetch errors can contain the secret URL; emit a fixed message instead.
-    throw new Error('部署请求未确认：连接失败、请求超时或服务返回重定向。请先查看 Vercel 部署记录，再决定是否重试。');
+    // Never include a request object or credential in errors.
+    throw new Error('发布请求未确认：连接失败或超时，请先检查网站仓库 Actions 记录。');
   }
-  if (!response.ok) {
-    throw new Error(`部署请求未被接受（HTTP ${response.status}）。请检查 Vercel 项目和部署 Hook 设置。`);
-  }
-  // The Hook queues a job. An accepted request does not establish a successful deployment.
-  console.log('Vercel 已接受部署请求；构建和发布结果请到 Vercel 控制台查看。');
+  if (!response.ok) throw new Error(`GitHub 未接受发布请求（HTTP ${response.status}），请检查令牌有效期及网站仓库的 Actions 写入权限。`);
+  console.log('网站发布任务已触发：https://github.com/ShimenTian/hotpot-coding-site/actions');
+  console.log('请求成功表示已触发任务；实际发布结果请查看网站仓库 Actions。');
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    await requestDeployHook(process.env.VERCEL_DEPLOY_HOOK);
+    await requestSiteDeployment(process.env.SITE_DISPATCH_TOKEN);
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;
