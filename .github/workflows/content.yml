@@ -1,4 +1,4 @@
-name: Check content and optionally request deployment
+name: Check articles and publish website
 
 on:
   pull_request:
@@ -48,5 +48,5 @@ jobs:
           package-manager-cache: false
       - name: Send deployment request
         env:
-          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+          SITE_DISPATCH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
         run: node scripts/request-deploy.mjs
